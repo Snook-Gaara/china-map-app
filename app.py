@@ -599,17 +599,19 @@ col_title, col_coords = st.columns([3, 1])
 with col_title:
     st.markdown("### China Manufacturing & Logistics Regions")
 with col_coords:
-    zoom_label = {4: "Country", 5: "Regional", 7: "Province", 9: "City", 11: "District"}.get(
-        st.session_state.map_zoom, f"Zoom {st.session_state.map_zoom}"
-    )
     st.markdown(f"""
     <div style='text-align:right;font-family:monospace;font-size:11px;color:#8b949e;padding-top:8px;'>
-      📍 {st.session_state.map_center[0]:.2f}°N, {st.session_state.map_center[1]:.2f}°E &nbsp;|&nbsp; {zoom_label}
+      📍 {st.session_state.map_center[0]:.2f}°N, {st.session_state.map_center[1]:.2f}°E
     </div>""", unsafe_allow_html=True)
 
 # Build and display map
 active_d1 = st.session_state.dist_city1 if st.session_state.dist_city1 != st.session_state.dist_city2 else None
 active_d2 = st.session_state.dist_city2 if st.session_state.dist_city1 != st.session_state.dist_city2 else None
+
+# Map key changes only when markers/content change — NOT on every zoom/pan
+# This prevents Streamlit from destroying and recreating the map widget on navigation
+_sc_key = st.session_state.searched_city["name"] if st.session_state.searched_city else "none"
+_map_key = f"map_{active_d1}_{active_d2}_{_sc_key}_{show_secondary}"
 
 m = build_map(
     center_lat=st.session_state.map_center[0],
@@ -621,14 +623,16 @@ m = build_map(
     searched_city=st.session_state.searched_city,
 )
 
-map_data = st_folium(m, width="100%", height=650, returned_objects=["last_clicked", "center", "zoom"])
+map_data = st_folium(
+    m,
+    width="100%",
+    height=650,
+    key=_map_key,
+    returned_objects=["last_clicked"],  # don't return center/zoom — stops rerun on every pan/zoom
+)
 
-# Sync zoom/center from map interaction
-if map_data:
-    if map_data.get("center"):
-        st.session_state.map_center = [map_data["center"]["lat"], map_data["center"]["lng"]]
-    if map_data.get("zoom"):
-        st.session_state.map_zoom = map_data["zoom"]
+# No center/zoom sync needed — Folium/Leaflet handles its own viewport state
+# Syncing caused a rerun on every pan/zoom interaction, creating the flicker
 
 # ─── Stats Strip ──────────────────────────────────────────────────────────────
 st.markdown("---")
