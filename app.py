@@ -480,9 +480,9 @@ if "map_zoom" not in st.session_state:
 if "search_query" not in st.session_state:
     st.session_state.search_query = ""
 if "dist_city1" not in st.session_state:
-    st.session_state.dist_city1 = "Shanghai"
+    st.session_state.dist_city1 = None
 if "dist_city2" not in st.session_state:
-    st.session_state.dist_city2 = "Shenzhen"
+    st.session_state.dist_city2 = None
 if "searched_city" not in st.session_state:
     st.session_state.searched_city = None
 
@@ -562,12 +562,20 @@ with st.sidebar:
     st.markdown('<div class="sidebar-header">Distance Calculator</div>', unsafe_allow_html=True)
 
     all_city_names = sorted(list(ALL_CITIES.keys()))
-    city1 = st.selectbox("From", all_city_names, index=all_city_names.index(st.session_state.dist_city1), key="city1_sel")
-    city2 = st.selectbox("To", all_city_names, index=all_city_names.index(st.session_state.dist_city2), key="city2_sel")
+    city_options = ["— Select city —"] + all_city_names
+
+    idx1 = city_options.index(st.session_state.dist_city1) if st.session_state.dist_city1 in city_options else 0
+    idx2 = city_options.index(st.session_state.dist_city2) if st.session_state.dist_city2 in city_options else 0
+
+    city1_sel = st.selectbox("From", city_options, index=idx1, key="city1_sel")
+    city2_sel = st.selectbox("To",   city_options, index=idx2, key="city2_sel")
+
+    city1 = city1_sel if city1_sel != "— Select city —" else None
+    city2 = city2_sel if city2_sel != "— Select city —" else None
     st.session_state.dist_city1 = city1
     st.session_state.dist_city2 = city2
 
-    if city1 != city2:
+    if city1 and city2 and city1 != city2:
         dist_km = calc_distance(city1, city2)
         dist_mi = round(dist_km * 0.621371, 1)
         st.markdown(f"""
@@ -578,15 +586,24 @@ with st.sidebar:
         </div>
         """, unsafe_allow_html=True)
 
-        if st.button("📍  Show on Map"):
-            c1 = ALL_CITIES[city1]
-            c2 = ALL_CITIES[city2]
-            mid_lat = (c1["lat"] + c2["lat"]) / 2
-            mid_lon = (c1["lon"] + c2["lon"]) / 2
-            st.session_state.map_center = [mid_lat, mid_lon]
-            st.session_state.map_zoom = 5
-    else:
+        col_show, col_clear = st.columns([3, 2])
+        with col_show:
+            if st.button("📍  Show on Map", key="show_dist"):
+                c1 = ALL_CITIES[city1]
+                c2 = ALL_CITIES[city2]
+                st.session_state.map_center = [(c1["lat"] + c2["lat"]) / 2,
+                                               (c1["lon"] + c2["lon"]) / 2]
+                st.session_state.map_zoom = 5
+        with col_clear:
+            if st.button("✕ Clear", key="clear_dist"):
+                st.session_state.dist_city1 = None
+                st.session_state.dist_city2 = None
+                st.rerun()
+
+    elif city1 and city2 and city1 == city2:
         st.caption("Select two different cities.")
+    else:
+        st.caption("Select two cities to calculate distance.")
 
     # ── Layer Toggle ──────────────────────────────────────────────
     st.markdown("---")
@@ -605,8 +622,8 @@ with col_coords:
     </div>""", unsafe_allow_html=True)
 
 # Build and display map
-active_d1 = st.session_state.dist_city1 if st.session_state.dist_city1 != st.session_state.dist_city2 else None
-active_d2 = st.session_state.dist_city2 if st.session_state.dist_city1 != st.session_state.dist_city2 else None
+active_d1 = st.session_state.dist_city1 if (st.session_state.dist_city1 and st.session_state.dist_city2 and st.session_state.dist_city1 != st.session_state.dist_city2) else None
+active_d2 = st.session_state.dist_city2 if (st.session_state.dist_city1 and st.session_state.dist_city2 and st.session_state.dist_city1 != st.session_state.dist_city2) else None
 
 # Map key changes only when markers/content change — NOT on every zoom/pan
 # This prevents Streamlit from destroying and recreating the map widget on navigation
