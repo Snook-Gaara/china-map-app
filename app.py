@@ -269,7 +269,8 @@ def make_popup_html(name, data):
 
 def build_map(center_lat=33.5, center_lon=114.0, zoom=5,
               show_additional=True, highlight=None,
-              dist_city1=None, dist_city2=None):
+              dist_city1=None, dist_city2=None,
+              searched_city=None):
 
     m = folium.Map(
         location=[center_lat, center_lon],
@@ -278,11 +279,11 @@ def build_map(center_lat=33.5, center_lon=114.0, zoom=5,
         prefer_canvas=True,
     )
 
-    # Dark tile layer
+    # Light tile layer
     folium.TileLayer(
-        tiles="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        tiles="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
         attr='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
-        name="Dark",
+        name="Light",
         max_zoom=19,
     ).add_to(m)
 
@@ -292,10 +293,10 @@ def build_map(center_lat=33.5, center_lon=114.0, zoom=5,
             folium.CircleMarker(
                 location=[data["lat"], data["lon"]],
                 radius=4,
-                color="#444c56",
+                color="#6e7f96",
                 fill=True,
-                fill_color="#444c56",
-                fill_opacity=0.7,
+                fill_color="#8fa3bc",
+                fill_opacity=0.75,
                 tooltip=folium.Tooltip(f"<b style='font-family:monospace'>{name}</b><br><small>{data['province']}</small>"),
                 popup=folium.Popup(make_popup_html(name, {**data, "type": "City", "description": ""}), max_width=240),
             ).add_to(m)
@@ -318,10 +319,10 @@ def build_map(center_lat=33.5, center_lon=114.0, zoom=5,
             location=[mid_lat, mid_lon],
             icon=folium.DivIcon(
                 html=f"""<div style='
-                    background:#1a1a2e;border:1px solid #f0883e;
-                    color:#f0883e;font-family:monospace;font-size:11px;
+                    background:#ffffffee;border:1px solid #f0883e;
+                    color:#c05000;font-family:monospace;font-size:11px;
                     padding:3px 8px;border-radius:4px;white-space:nowrap;
-                    box-shadow:0 2px 8px rgba(0,0,0,0.5);
+                    box-shadow:0 2px 6px rgba(0,0,0,0.15);
                 '>{dist} km</div>""",
                 icon_size=(90, 24),
                 icon_anchor=(45, 12),
@@ -356,13 +357,14 @@ def build_map(center_lat=33.5, center_lon=114.0, zoom=5,
           <div style="
             position:absolute;top:50%;left:{size*1.2}px;
             transform:translateY(-50%);
-            background:#161b22cc;
-            color:#f0f6fc;
+            background:#ffffffee;
+            color:#1a1a2e;
             font-family:monospace;
             font-size:10px;font-weight:600;
             padding:2px 5px;border-radius:3px;
             white-space:nowrap;
-            border:1px solid #30363d;
+            border:1px solid #c8d0d8;
+            box-shadow:0 1px 4px rgba(0,0,0,0.15);
           ">{name}</div>
         </div>
         """
@@ -385,8 +387,86 @@ def build_map(center_lat=33.5, center_lon=114.0, zoom=5,
             folium.CircleMarker(
                 location=[d["lat"], d["lon"]],
                 radius=7,
-                color="#f0883e",
-                fill=True, fill_color="#f0883e", fill_opacity=0.6,
+                color="#e06c00",
+                fill=True, fill_color="#f0883e", fill_opacity=0.8,
+            ).add_to(m)
+
+    # ── Search result pin ─────────────────────────────────────────
+    if searched_city:
+        sc = searched_city
+        is_key_city = sc["name"] in KEY_CITIES
+        if not is_key_city:
+            pin_html = f"""
+            <div style="position:relative;width:160px;height:60px;">
+              <!-- drop shadow ring -->
+              <div style="
+                position:absolute;top:8px;left:8px;
+                width:28px;height:28px;
+                background:#ff4500;
+                border-radius:50% 50% 50% 0;
+                transform:rotate(-45deg);
+                border:3px solid white;
+                box-shadow:0 3px 12px rgba(255,69,0,0.6);
+              "></div>
+              <!-- inner dot -->
+              <div style="
+                position:absolute;top:16px;left:16px;
+                width:12px;height:12px;
+                background:white;
+                border-radius:50%;
+              "></div>
+              <!-- label -->
+              <div style="
+                position:absolute;top:4px;left:44px;
+                background:#ff4500;
+                color:white;
+                font-family:monospace;
+                font-size:12px;font-weight:700;
+                padding:4px 10px;
+                border-radius:5px;
+                white-space:nowrap;
+                box-shadow:0 2px 8px rgba(255,69,0,0.4);
+                border:2px solid white;
+              ">{sc["name"]}</div>
+              <!-- province sub-label -->
+              <div style="
+                position:absolute;top:30px;left:44px;
+                background:white;
+                color:#333;
+                font-family:monospace;
+                font-size:10px;
+                padding:2px 8px;
+                border-radius:3px;
+                white-space:nowrap;
+                box-shadow:0 1px 4px rgba(0,0,0,0.15);
+                border:1px solid #ddd;
+              ">{sc["province"]}</div>
+            </div>
+            """
+            folium.Marker(
+                location=[sc["lat"], sc["lon"]],
+                icon=folium.DivIcon(
+                    html=pin_html,
+                    icon_size=(160, 60),
+                    icon_anchor=(22, 38),
+                ),
+                tooltip=folium.Tooltip(f"<b>🔍 {sc['name']}</b><br>{sc['province']}"),
+                popup=folium.Popup(make_popup_html(sc["name"], {
+                    **sc, "type": "Search Result", "description": ""}), max_width=250),
+                z_index_offset=1000,
+            ).add_to(m)
+        # If it's a key city, it's already rendered with its own marker above;
+        # just add a pulsing ring around it for extra emphasis
+        else:
+            kc = KEY_CITIES[sc["name"]]
+            folium.CircleMarker(
+                location=[kc["lat"], kc["lon"]],
+                radius=22,
+                color="#ff4500",
+                fill=False,
+                weight=3,
+                opacity=0.85,
+                tooltip=folium.Tooltip(f"<b>🔍 {sc['name']}</b>"),
             ).add_to(m)
 
     return m
@@ -403,6 +483,8 @@ if "dist_city1" not in st.session_state:
     st.session_state.dist_city1 = "Shanghai"
 if "dist_city2" not in st.session_state:
     st.session_state.dist_city2 = "Shenzhen"
+if "searched_city" not in st.session_state:
+    st.session_state.searched_city = None
 
 
 # ─── Layout ────────────────────────────────────────────────────────────────────
@@ -424,8 +506,28 @@ with st.sidebar:
                 if st.button(label, key=f"search_{r['name']}"):
                     st.session_state.map_center = [r["lat"], r["lon"]]
                     st.session_state.map_zoom = 9
+                    st.session_state.searched_city = {
+                        "name": r["name"],
+                        "lat": r["lat"],
+                        "lon": r["lon"],
+                        "province": r["province"],
+                    }
         else:
             st.caption("No results found.")
+
+    if st.session_state.searched_city:
+        sc = st.session_state.searched_city
+        st.markdown(f"""
+        <div style='background:#fff8e6;border:1px solid #f0a030;border-radius:6px;
+                    padding:8px 12px;margin-top:8px;'>
+          <div style='font-size:10px;color:#a06010;font-family:monospace;
+                      text-transform:uppercase;letter-spacing:0.08em;'>Showing on map</div>
+          <div style='font-size:13px;font-weight:600;color:#1a1a2e;margin-top:2px;'>📍 {sc["name"]}</div>
+          <div style='font-size:11px;color:#666;'>{sc["province"]}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("✕  Clear pin", key="clear_search"):
+            st.session_state.searched_city = None
 
     # ── Key Cities ────────────────────────────────────────────────
     st.markdown('<div class="sidebar-header">Key Cities</div>', unsafe_allow_html=True)
@@ -516,6 +618,7 @@ m = build_map(
     show_additional=show_secondary,
     dist_city1=active_d1,
     dist_city2=active_d2,
+    searched_city=st.session_state.searched_city,
 )
 
 map_data = st_folium(m, width="100%", height=650, returned_objects=["last_clicked", "center", "zoom"])
